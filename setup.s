@@ -9,7 +9,15 @@
 ;----------------------------------------------------------
 
 	opt	p=68000
+
+
+	IFND	SCREENS
+SCREENS		equ	2
+	ENDIF
+
+	IFND	SCREEN_SIZE
 SCREEN_SIZE	equ	32000
+	ENDIF
 
 	section text
 
@@ -146,6 +154,7 @@ save_registers:
 	move.b	$fffffa21.w,(a0)+
 	move.b	$fffffa25.w,(a0)+
 
+	move.b	$fffffa17.w,(a0)+
 	move.b	$fffffa19.w,(a0)+
 	move.b	$fffffa1b.w,(a0)+
 
@@ -195,6 +204,7 @@ restore_registers:
 	move.b	(a0)+,$fffffa21.w
 	move.b	(a0)+,$fffffa25.w
 
+	move.b	(a0)+,$fffffa17.w
 	move.b	(a0)+,$fffffa19.w
 	move.b	(a0)+,$fffffa1b.w
 

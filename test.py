@@ -4,21 +4,22 @@ This script sets up an environment for my running my atari programs in hatari.
 
 """
 import os
-from os.path import exists
+from os.path import *
+import sys
 from subprocess import call
 import subprocess
 from optparse import OptionParser
 import shutil
 import re
 from urllib import urlretrieve
-import zipfile 
+import zipfile
 import base64
-
+import platform
 """
-When booting Hatari, it is much faster to do so if there is a disk inserted 
+When booting Hatari, it is much faster to do so if there is a disk inserted
 in drive a. This is a base64 encode zip-file containing and empty .st file.
-Since hatari can cope with disk images inside zip files, all that is needed 
-is to decode the base64 string and save it to disk. And pass the file to 
+Since hatari can cope with disk images inside zip files, all that is needed
+is to decode the base64 string and save it to disk. And pass the file to
 hatari of course.
 """
 zipped_empty_disk = "UEsDBBQAAgAIAKC0yESrFOmvngMAAADADQAMABwAZHVtbXlkaXNrLnN0VVQJAANryZRTZiyW" + \
@@ -61,6 +62,7 @@ class TestEnv(dict):
         params = [ self.hatari ]
         params.extend( '--confirm-quit 0'.split(' ') )
 
+
         if opts.no_auto:
             dest_path = 'testenv/root'
         else:
@@ -80,18 +82,19 @@ class TestEnv(dict):
                 shutil.copyfile( filename, dest )
 
         if opts.enable_debugger:
-            params.extend(['-D', '--debug-except','all']) # ,'--parse','break.ini'])
+            params.extend(['-D', '--debug-except','all','--bios-intercept']) # ,'--parse','break.ini'])
+            #params.extend( ['-W'])
 
-        if os.path.exists( 'testenv/empty_dsk.zip' ):
-            params.extend( ['--disk-a', 'testenv/empty_dsk.zip' ] )
+        if os.path.exists( 'testenv/dummy.zip' ):
+            params.extend( ['--disk-a', 'testenv/dummy.zip' ] )
 
         params.extend( ['--fast-boot','true', '--memsize','0','-d', 'testenv/root' ] )
         # params.extend( ['--frameskips', '1'] )
         params.extend( ['--machine', opts.machine, '--tos', self.tos[opts.machine]] )
+        params.extend( ['--natfeats', 'true'])
 
-
-        if 'params' in self:
-            params.extend( self.params )
+        if 'more' in self:
+            params.extend( self.more )
 
         try:
             print( ' '.join(params))
@@ -139,6 +142,52 @@ def dl_tos( ):
     unzip( "ALL_TOS.ZIP")
 
 
+def ff(file_name, stack):
+    while len(stack) > 0:
+        cdir = stack.pop()
+
+        if not exists(cdir) or not isdir(cdir):
+            continue
+        # check files
+        for entry in os.listdir(cdir):
+            path = os.path.join(cdir, entry)
+            if isfile(path):
+                if entry == file_name:
+                    return path
+            elif isdir(path):
+                if 'hatari' in entry or 'Hatari' in entry:
+                    #print("found prospect %s"%path)
+                    stack.append(path)
+                else:
+                    #print("traverse dir %s"%path)
+                    stack = [path] + stack
+
+    return None
+
+def find_hatari():
+
+    dirstack = []
+    res = None
+
+    if sys.platform == 'cygwin':
+        dirstack.append("/cygdrive/c/Applications/")
+        dirstack.append("/cygdrive/c/Program Files/")
+        dirstack.append("/cygdrive/c/Program Files (x86)/")
+        res = ff("hatari.exe", dirstack)
+    elif sys.platform == 'darwin':
+        dirstack.append("/Applications/")
+        res = ff("hatari", dirstack)
+    elif sys.platform == 'win32':
+        dirstack.append("C:/Applications/")
+        dirstack.append("C:/Program Files/")
+        dirstack.append("C:/Program Files (x86)/")
+        res = ff("hatari.exe", dirstack)
+    else:
+        print("Sorry, I don't know where to look for hatari on platform %s"%sys.platform)
+
+    return res
+
+
 def setup_test_env( opts = []):
     print( "Setting up test environment..." )
     old_cwd = os.getcwd()
@@ -149,7 +198,7 @@ def setup_test_env( opts = []):
     os.chdir( "testenv" )
 
     # create disk image
-    diskimgfile = open( "empty_dsk.zip","w")
+    diskimgfile = open( "dummy.zip","w")
     diskimgfile.write( base64.b64decode( zipped_empty_disk ) )
     diskimgfile.close()
 
@@ -158,24 +207,17 @@ def setup_test_env( opts = []):
 
     os.chdir( old_cwd )
 
-    system = os.uname()[0]
     env = TestEnv()
 
-    # This needs to be done a better way. Maybe require hatari in system path?
-    hatari_bins = [ 
-                    '/Applications/Hatari.app/Contents/MacOS/Hatari',
-                    '/Applications/Hatari_original.app/Contents/MacOS/Hatari',
-                    '/cygdrive/c/Applications/hatari-1.7.0_windows/hatari.exe',
-                  ]
-
-    for path in hatari_bins:
-        if exists(path):
-            env.hatari = path
-            break
+    hatari_exe = find_hatari()
+    if not hatari_exe == None:
+        print("Found hatari executable at %s"%hatari_exe)
+        env.hatari = hatari_exe
 
     env.tos = {
                 'st' : 'testenv/TOS/swedish/tos104se/tos104se.img',
                 'ste' : 'testenv/TOS/swedish/tos162se/tos162se.img',
+                #'ste' : 'testenv/TOS/swedish/tos206se/tos206se.img',
               }
 
     validate_env(env)
@@ -187,11 +229,13 @@ def setup_test_env( opts = []):
 def validate_env( env ):
     # Just check if files are found.
 
+
     try:
         if not os.path.exists( env.hatari ):
             raise Exception()
     except Exception, e:
-        print("\033[33mCould not find hatari binary (expected location: /Applications/Hatari.app).\033[0m")
+        print("\033[33mHatari executable was not be located.\033[m")
+        raise
 
     class TOSnotFoundException( Exception):
         pass
@@ -202,8 +246,10 @@ def validate_env( env ):
                 raise TOSnotFoundException( tosp )
     except TOSnotFoundException, e:
         print("\033[33mCould not TOS file %s\033[0m" % e)
+        return None
     except KeyError, e:
         print("\033[33mTOS files missing from environment\033[0m" )
+        return None
 
 
 def get_test_env( ):
@@ -229,7 +275,7 @@ if __name__ == '__main__':
     parser.add_option( "--setup", dest="setup", action="store_true" )
     parser.add_option( "--clean", dest="clean", action="store_true" )
     parser.add_option( "--toslang", dest="toslang", default="se" )
-    parser.add_option( "-D","--debug", dest="enable_debugger", action="store_true")
+    parser.add_option( "--debug", dest="enable_debugger", action="store_true")
     parser.add_option( "-m","--machine", dest="machine", default="st")
     parser.add_option( "--no-auto", dest="no_auto", action="store_true", default=False )
 
@@ -244,9 +290,13 @@ if __name__ == '__main__':
         exit(0)
 
     if opts.setup:
-        env = setup_test_env( opts )
-        save_env( env )
-        print("atari test emulator environment setup complete.")
+        try:
+            env = setup_test_env( opts )
+            save_env( env )
+            print("atari test emulator environment setup complete.")
+        except Exception, e: 
+            print(e)
+ 
         exit(0)
 
     env = get_test_env( )

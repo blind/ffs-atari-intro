@@ -15,7 +15,7 @@ DATA = sintab.bin ball.bin
 #ifeq ($(MAKECMDGOALS),synced)
 OUT = ffs.prg
 SRC = f.s
-DEPS = setup.s
+DEPS = setup.s debug.s
 #endif
 
 .PHONY: all test sttest stetest release clean
@@ -45,7 +45,7 @@ stetest: all
 	python test.py -m ste $(OUT)
 
 debug: all
-	python test.py -m ste -D $(OUT)
+	python test.py -m ste --debug  $(OUT)
 
 gfxext.py: data.def
 
