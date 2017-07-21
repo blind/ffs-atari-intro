@@ -1,0 +1,10 @@
+[
+	{
+		"type" : "tiledata",
+		"source" : "ball.gif",
+		"output":"ball.bin",
+		"tile_width" : 32,
+		"tile_height" : 24,
+		"block" : [[0,0],[1,1]]
+	}
+]
