@@ -120,25 +120,70 @@ def gen_tiledata(part,*params):
 	outfile.write(data.getvalue())
 	outfile.close()
 
+def gen_colorblock(part, *params):
+	image = open_image(part["source"])
+
+	x = part["x"]
+	y = part["y"]
+
+	w = part["width"]
+	h = part["height"]
+
+	block = subimages(image,x,y,w,h)[0]
+	block.load()
+	p = block.getpalette()
+
+	colordata = []
+
+	f = lambda x: x
+
+	if image.mode == 'P':
+		# paletted
+		f = lambda x: p[x*3:x*3+3]
+
+	for y in xrange(0, h):
+		for x in xrange(0, w):
+			pixel = block.getpixel((x,y))
+			rgb = f(pixel)
+			stecol = rgb2ste(*rgb)
+
+			colordata += [stecol]
+
+	outfile = open( part["output"], "wb")
+	outfile.write( struct.pack(">%dH"% len(colordata) ,*colordata ))
+	outfile.close()
+
+
+
 def gen_palette(part,*params):
 	image = open_image(part["source"])
 	if image.mode != 'P':
-		print("erorr, needs pallette based image")
+		print("error, needs pallette based image")
 		exit(23)
 	p = image.getpalette()
+	start = 0
+	end = 16
+	if "start" in part:
+		start = int(part["start"])
+	if "end" in part:
+		end = int(part["end"])
 	l = []
 	output = open(part["output"], "wb" )
-	for i in xrange(0,16):
+	for i in xrange(start,end):
 		c = i*3
-		col = p[c*3:3]
-		r = ((p[c]) >> 4) & 15
-		g = ((p[c+1]) >> 4) & 15
-		b = ((p[c+2]) >> 4) & 15
-		r = (r>>1) | ((r&1)<<3)
-		g = (g>>1) | ((g&1)<<3)
-		b = (b>>1) | ((b&1)<<3)
-		output.write( struct.pack(">H", (r<<8) |(g<<4)|b ) )
+		stecol = rgb2ste(*p[c:c+3])
+		output.write( struct.pack(">H", stecol ))
 	output.close()
+
+def rgb2ste(r,g,b):
+	r = ((r) >> 4) & 15
+	g = ((g) >> 4) & 15
+	b = ((b) >> 4) & 15
+	r = (r>>1) | ((r&1)<<3)
+	g = (g>>1) | ((g&1)<<3)
+	b = (b>>1) | ((b&1)<<3)
+	return (r<<8) |(g<<4)|b
+
 
 def gen_masks(part,*params):
 	print( "reading %s"%(part["source"]))
@@ -235,6 +280,7 @@ def dispatch( part, inp = None ):
 			"maploader": map_loader,
 			"collisionmask": gen_collisionmask,
 			"room"     : gen_room,
+			"colorblock" : gen_colorblock,
 		}
 	ptype = part["type"]
 	if ptype in dispatch_tab:

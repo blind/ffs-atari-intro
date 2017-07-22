@@ -10,7 +10,7 @@ LD_FLAGS = -bataritos -d -s
 
 BUILDDIR = build/
 
-DATA = sintab.bin ball.bin
+DATA = sintab.bin ball.bin vulk.bin ball.plt
 
 #ifeq ($(MAKECMDGOALS),synced)
 OUT = ffs.prg

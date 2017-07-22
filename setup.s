@@ -4,7 +4,7 @@
 ; Initialization for ST demos. By blind_io
 ;
 ;  Project start: 2002-02-03
-;  Latest change: 2013-04-10
+;  Latest change: 2017-07-21
 ;
 ;----------------------------------------------------------
 
