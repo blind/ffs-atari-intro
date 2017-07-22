@@ -12,7 +12,7 @@ SCREENS		equ	8
 
 	include "setup.s"
 
-	include "debug.s"
+;	include "debug.s"
 ;----------------------------------------------------------
 	section text
 ;----------------------------------------------------------
@@ -23,14 +23,14 @@ main:
 
 	move.w	#$2300,sr
 .loop
+	move.l	vbl_count,d0
+.wait_vbl
+	cmp.l	vbl_count,d0
+	beq.s	.wait_vbl
+
 	; update color
-;	move.w	#$123,$ffff8240.w
 	bsr	 	update_dist
-
-
-;	move.w	#$321,$ffff8240.w
 	bsr		ballz
-;	move.w	#$0,$ffff8240.w
 
 .key btst.b	#0,$fffffc00.w
 	beq.s	.no_key
@@ -39,11 +39,6 @@ main:
 	bra.s	.key
 
 .no_key
-	move.l	vbl_count,d0
-.wait_vbl
-	cmp.l	vbl_count,d0
-	beq.s	.wait_vbl
-
 	bra.s	.loop
 .done
 	move.w	#$2700,sr	; make sure we stop with the interrupts..
@@ -60,7 +55,9 @@ init:
 	moveq	#1,d0
 	bsr		music
 
+	IFD DEBUG
 	bsr.w	debug_init
+	ENDIF
 	bsr.w	init_bg
     bclr    #5,$fffffa09.w      ; disable timer c interrupt
     bclr    #6,$fffffa09.w      ; disable ikbd interrupt
@@ -69,7 +66,6 @@ init:
 
 	movem.l	palette,d0-7
 	movem.l	d0-7,$ffff8240.w	; palette
-
 
 
 	; Shift balls...
@@ -196,9 +192,8 @@ init_bg:
 ;----------------------------------------------------------
 calc_colors:
 	lea		color_data,a0
-
 	lea		vulk,a1
-;	move.w	#$351,d1
+
 	move.w	#228-1,d0
 .cl1
 	move.l	(a1)+,d4
@@ -232,13 +227,13 @@ vbl:
 	REPT SCREENS-1
 	move.l	4(a0),(a0)+
 	ENDR
+
 	move.l	d0,(a0)
 
 	lsr.w	#8,d0
 	move.l	d0,$ffff8200.w	; screen base
 	move.b  #0,$ffff8260.w  ; low res
-;	move.b	#2,$ffff820a.w	; 60 hz
-
+	move.b	#2,$ffff820a.w	; 50/60 hz
 
 	; Setup raster
     move.b  #$0,$fffffa1b.w     ; stop timer b
@@ -247,7 +242,6 @@ vbl:
 	bclr.b	#3,$fffffa17.w		; auto end of interrupt
     move.l  #hbl,$120.w
     move.b  #$8,$fffffa1b.w 	; start timer b - event count mode
-
 
 
     ; vulk offset
@@ -289,7 +283,6 @@ hbl:
     move.l	(a6)+,$ffff8258.w
     move.l	(a6)+,$ffff825c.w
     add.w	(a5)+,a6
-;    lea		16(a6),a6
 
     move.b  #1,$fffffa21.w  ; next line
     move.b  #$8,$fffffa1b.w ; start timer b
@@ -303,12 +296,12 @@ update_dist:
 	move.w	distRowDA,d1
 	add.w	d1,d1			; *2
 	add.w	d0,d0
-;	ror.w	#8,d0
+
 	ror.w	#8,d1
 	moveq	#0,d5
 	lea		sintab,a1
-;	dbgBreak
-	moveq	#16,d2
+
+	moveq	#0,d2
 	swap	d2
 	move.w	#200-1,d4
 .l
@@ -318,6 +311,7 @@ update_dist:
 	ext.l	d3
 	lsl.l	#5,d3
 	swap	d3
+	andi.w	#$1e,d3	; % 16
 	move.w	d3,d2	; save from last row for delta
 	addi.w	#16,d3
 	swap	d2
@@ -504,8 +498,6 @@ vbl_count dc.l	0
 
 palette:
 	incbin	"ball.plt"
-	dc.w	$000,$111,$222,$333,$444,$555,$666,$777
-	dc.w	$111,$222,$333,$444,$555,$666,$777,$707
 
 bg:	dc.w	%0101010101010101
 	dc.w	%0011001100110011

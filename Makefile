@@ -55,7 +55,7 @@ ifneq ($(strip $(UPX)),)
 else
 	@echo "UPX not found"
 endif
-	zip extralif.zip extralif.prg readme.txt
+	zip ffsvulk.zip ffs.prg readme.txt
 
 clean:
 	rm -f $(addprefix $(BUILDDIR),$(OBJS)) $(OUT) $(DATA)
